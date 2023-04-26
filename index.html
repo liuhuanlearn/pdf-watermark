@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+
+  <head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+    <script src="https://unpkg.com/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@pdf-lib/fontkit@1.1.1/dist/fontkit.umd.min.js"></script>
+  </head>
+
+  <body>
+    <button id="save-pdf">保存pdf</button>
+  </body>
+  <script>
+    let startTime = ''
+    document.getElementById('save-pdf').addEventListener('click', modifyPdf)
+
+    function download (data, filename, type) {
+      var file = new Blob([data], { type: type });
+      if(window.navigator.msSaveOrOpenBlob) // IE10+
+        window.navigator.msSaveOrOpenBlob(file, filename);
+      else { // Others
+        var a = document.createElement("a"),
+          url = URL.createObjectURL(file);
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        setTimeout(function() {
+          document.body.removeChild(a);
+          window.URL.revokeObjectURL(url);
+        }, 0);
+      }
+      console.log('耗时：', new Date().getTime() - startTime);
+    }
+
+
+
+    async function modifyPdf () {
+      startTime = new Date().getTime()
+      // URL 这个是要请求的地址 这里我挂载到自己的服务器会跨域 所以用本地直接引入的方式
+      const url = '../static/小红书(第四版).pdf'
+      // 字体的路径 同样可为网络地址
+      const fontUrl = '../static/DENG.TTF'
+      // 请求地址并变成arrayBuffer
+      const existingPdfBytes = await fetch(url).then(res => res.arrayBuffer())
+      // 请求地址并把字体文件变成arrayBuffer
+      const fontBuffer = await fetch(fontUrl).then(res => res.arrayBuffer())
+
+      const pdfDoc = await PDFLib.PDFDocument.load(existingPdfBytes)
+      // 注入字体
+      pdfDoc.registerFontkit(window.fontkit)
+      const customFont = await pdfDoc.embedFont(fontBuffer)
+
+      const pages = pdfDoc.getPages()
+      const firstPage = pages[0]
+      const { width, height } = firstPage.getSize()
+      pages.forEach(item => {
+        item.drawText('我是第一行', {
+          // 出现的 x 轴坐标
+          x: 520 / 2,
+          // 出现的 y 轴坐标
+          y: height / 2 + 300,
+          // 字体大小
+          size: 30,
+          // 字体
+          // font: helveticaFont,
+          font: customFont, // 用自己注入的字体
+          // 颜色
+          color: PDFLib.rgb(0, 0, 0),
+          // 倾斜角度
+          rotate: PDFLib.degrees(-45),
+          // 透明度
+          opacity: 0.5
+        })
+        item.drawText('内部文档，禁止外传', {
+          // 出现的 x 轴坐标
+          x: 520 / 2,
+          // 出现的 y 轴坐标
+          y: height / 2 + 200,
+          // 字体大小
+          size: 30,
+          // 字体
+          // font: helveticaFont,
+          font: customFont, // 用自己注入的字体
+          // 颜色
+          color: PDFLib.rgb(0, 0, 0),
+          // 倾斜角度
+          rotate: PDFLib.degrees(-45),
+          // 透明度
+          opacity: 0.5
+        })
+      })
+
+      const pdfBytes = await pdfDoc.save()
+      console.log(pdfBytes)
+      // 下载
+      download(pdfBytes, 'pdf-lib_modification_example.pdf', 'application/pdf');
+    }
+  </script>
+
+</html>
